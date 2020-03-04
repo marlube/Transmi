@@ -314,8 +314,9 @@ to make-new-human
   if is-time-to-make-new-human [
     set last_new_human_tick ticks
     let dir 0 ; ( floor ( random-float 1.9 ) ) * 180
-    let x ( -7 - round ( random-float numero-vagones ) )
-    let y min-pycor
+    ;(CAmbiar posicion de aparicion)
+    let x ( -15 - round ( random-float numero-vagones ) )
+    let y (6)
     if dir = 180 [ set y max-pycor ]
     if (random-float 100 < human-frequency) and not any? turtles-on patch x y [
       create-pasajeros 1 [
