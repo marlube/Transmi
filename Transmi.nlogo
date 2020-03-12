@@ -2,32 +2,30 @@
 ; Definiciones
 ; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 globals [
-  last_new_engine_tick
-  last_new_human_tick
-  last_move_tick
-  dwelling_max
+  tick-ultimo-nuevo-motor ;last_new_engine_tick
+  llenado-max             ;dwelling_max
 ]
 breed [pasajeros pasajero]
-breed [engines engine]
-breed [ carriages carriage ]
-breed [engines2 engine2]
-breed [ carriages2 carriage2 ]
-breed [ flora florum ]
+breed [motores motor]
+breed [vagones vagon]
+breed [motores2 motor2]
+breed [vagones2 vagon2]
+
 
 
 pasajeros-own [
-  edad saldo destino ing-econ estres
+  edad saldo destino ingresos estres
 ]
-engines-own [
-  dwell capacidad-sentados ruta capacidad-depie n-vagones
+motores-own [
+  cupo capacidad-sentados ruta capacidad-depie
 ]
-carriages-own [
-  load
+vagones-own [
+  carga
 ]
-engines2-own [
-  dwell capacidad-sentados ruta capacidad-depie n-vagones
+motores2-own [
+  cupo capacidad-sentados ruta capacidad-depie
 ]
-carriages2-own [
+vagones2-own [
   load
 ]
 
@@ -35,57 +33,70 @@ carriages2-own [
 ; Reportes
 ; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-to-report ticks-of-next-new-engine
-  report last_new_engine_tick + intervalo-transmi
+to-report ticks-del-siguiente-transmi
+  ;el tick del ultimo motor mas el intervalo de aparicion que da el usuario
+  ;es en el tick en el cual tiene que aparecer el siguiente transmi
+  report tick-ultimo-nuevo-motor + intervalo-transmi
 end
 
-to-report is-time-to-make-new-engine
-  report ticks >= ticks-of-next-new-engine
+to-report momentode-hacer-nuevo-motor
+  ;cuando el tick sea el de arriba ahí reporta el numero de tick para crear otro
+  report ticks >= ticks-del-siguiente-transmi
 end
 
-to-report is-time-to-make-new-human
-  let t ( intervalo-pasajeros )
-  report ticks >= last_new_human_tick + t
-end
-
-to-report is-time-to-move
-  report ticks >= last_move_tick + 2
-end
-
-to-report get-load-on-carriages
-  if count engines < 1 [
-    report 0
+to-report capacidad-en-vagones
+  if count motores < 1 [
+    report 0 ;si no hay motores, no hay vagones
   ]
   let c 0
-  ask carriages [ set c ( c + load ) ]
-  report c
+  ask vagones [ set c ( c + carga ) ]
+  report c ;si hay motores pregunte al vagon cuantas personas entraron
 end
 
-to-report can-platform-be-at-coord [ x ]
-  report x < 1 and x < -5
+to-report puede-motor-estar-coord [ x ]
+  report x > (0 - n-vagones - 1) and x < 0
 end
 
-to-report can-engine-be-at-coord [ x ]
-  report x > (0 - numero-vagones - 1) and x < 0
-end
-
-to-report can-next-stopping-engine-be-at-coord [ x ]
-  let active-engine false
-  ; no engine
-  if count engines > 1 [
-    ask engines [
-      ; past station
-      if xcor <= 0 and xcor > (min-pxcor + numero-vagones + 1) [
-        set active-engine true
+to-report Puede-parar-motor-en-coord [ x ]
+  let active-motor false
+  ;se inicia la variable en falso
+  if count motores > 1 [
+    ask motores [
+      if xcor <= 0 and xcor > (min-pxcor + n-vagones + 1)[
+        set active-motor true
+        ;si el numero de motores es mayor de 1 preguntele al los motores
+        ;sila coordenada es menor o igual que cero o es mayor a
+        ;el minimo pixel en x mas el numero de vagones mas 1 active el motor
       ]
     ]
   ]
-  if not active-engine [ report can-engine-be-at-coord x ]
-  report x > (0 - (count carriages) - 1) and x < 0
+  if not active-motor [report puede-motor-estar-coord x ]
+  report x > (0 - (count vagones) - 1 ) and x < 0
 end
 
+to-report cupo-cuenta-regresiva
+  let llenado "-"
+  if (count motores-on patch 2 -11) = 1[
+    ask motores[
+      set llenado cupo
+    ]
+  ]
+  report llenado
+  ;tiempo en cuenta regresiva de cuanto tiene que esperar
+  ;para llenar el transmi
+end
 
-to-report coord-to-location [ x y ]
+to-report cuenta-regresiva-aparicion-motor
+  if count motores < 1 [
+    let t (ticks-del-siguiente-transmi - ticks)
+    if t < 0 [report 0]
+    report t
+  ]
+  report "-"
+  ;cuenta regresiva para la aparicion de otro transmi
+end
+
+to-report  coordenadas-elementos-mundo [ x y ]
   if y = -10 [ report "dirt" ]
   if y = -12 [ report "dirt" ]
   if y = 11 [ report "dirt" ]
@@ -96,34 +107,8 @@ to-report coord-to-location [ x y ]
   ;if y = 3 and not can-platform-be-at-coord x [ report "dirt" ]
   if ( y > -10 and y < -7 ) and ( x > -5 and x < 17 )  [ report "platform" ]
   if ( y > 8 and y < 11 ) and ( x > -5 and x < 17 )  [ report "platform2" ]
-  if (y > -10 and y < 12) and can-platform-be-at-coord x [ report "path" ]
+  if (y > -10 and y < 12) and (x < 1 and x < -5) [ report "path" ]
   report "grass"
-end
-
-to-report tree-color [ v ]
-  if v < 1.0 [ report red - 2 ]
-  if v < 2.0 [ report orange - 1 ]
-  if v < 3.0 [ report yellow - 1 ]
-  report green - 3
-end
-
-to-report dwell-countdown
-  let dwelling "-"
-  if (count engines-on patch -2 -11) = 1 [
-    ask engines [
-      set dwelling dwell
-    ]
-  ]
-  report dwelling
-end
-
-to-report engine-countdown
-  if count engines < 1 [
-    let t ( ticks-of-next-new-engine - ticks )
-    if t < 0 [ report 0 ]
-    report t
-  ]
-  report "-"
 end
 
 ; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -137,23 +122,20 @@ end
 to setup
   clear-all
   reset-ticks
-  set last_new_engine_tick 0
-  set last_new_human_tick 0
-  set last_move_tick 0
-  set dwelling_max 0
+  set tick-ultimo-nuevo-motor 0
+  set llenado-max 0
 
+  set-default-shape motores "train passenger engine"
+  set-default-shape vagones "train passenger car"
   set-default-shape pasajeros "person"
-  set-default-shape flora "tree"
-  set-default-shape engines "train passenger engine"
-  set-default-shape carriages "train passenger car"
-  set-default-shape pasajeros "person"
+
   iniciar-patches
 end
 
 to iniciar-patches
   ;Se les da color a las coordenadas ya establecidas para cada elemento
   ask patches [
-    let loc ( coord-to-location pxcor pycor )
+    let loc ( coordenadas-elementos-mundo pxcor pycor )
     let grass ( green - 0.25 + random-float 1.5 )
     set pcolor ( ifelse-value (loc = "railway") [black] ifelse-value (loc = "railway2") [black] ifelse-value (loc = "ingreso")
       [grey - 3] [ifelse-value (loc = "platform") [grey] [ifelse-value (loc = "dirt") [brown] ifelse-value (loc = "platform2") [grey]
@@ -164,12 +146,8 @@ to iniciar-patches
   while [ c < 40 ] [
     let x random-pxcor
     let y random-pycor
-    let loc ( coord-to-location  x y )
-    if loc = "grass" and not any? flora-on patch x y [
-      create-flora 1 [
-        setxy x y
-        set color tree-color random-float 5.0
-      ]
+    let loc ( coordenadas-elementos-mundo  x y )
+    if loc = "grass"  [
       set c ( c + 1 )
     ]
   ]
@@ -178,12 +156,9 @@ end
 ; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ; Running
 ; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
 to go
   every 0.1 / velocidad-simulacion [
-    set last_new_engine_tick 0
-    ; let us set the tick rate at 10 fps
+  ; let us set the tick rate at 10 fps
     ; then we shall assume that every tick is equivilant to 1 sec
     ; the fps is 24 so that it is a multiple of 8
     go-single
@@ -192,170 +167,61 @@ to go
 end
 
 to go-single
-  ;; not available in the web -> no-display ;; to keep the carriages moving as one
-  ifelse count engines > 0 or count carriages > 0 [
-    move-engines
-  ] [
-    make-new-engine
+  ;para mantener los vagones como uno
+  ifelse count motores > 0 or count vagones > 0 [
+    ;mover-motores
+  ][
+   ; hacer-nuevo-motor
   ]
-  make-new-carriage ; use the fact that the last carriage may have moved into the second square to test
-  ;; not available in the web -> display
-
-  move-humans
-  make-new-human
+  ;hacer-nuevo-vagon
 end
-
-
 ; ~~~~~~~~~~~~~~~~~~~~
 ; Control
 ; ~~~~~~~~~~~~~~~~~~~~
-
-to delay-next-engine [ duration ]
-  set last_new_engine_tick ( last_new_engine_tick + duration )
-end
 
 ; ~~~~~~~~~~~~~~~~~~~~
 ; Movement
 ; ~~~~~~~~~~~~~~~~~~~~
 
-to move-engines
-  let dwelling 0
-  ask engines [
+to mover-motores
+  let llenado 0
+  ask motores [
     ifelse not can-move? 1 [
       die
     ][
-      set dwelling dwell
-      ifelse dwell > 0 [
-        set dwell dwell - 1
+      set llenado cupo
+      ifelse cupo > 0 [
+        set cupo cupo - 1
       ][
         fd 1
         if xcor = 0 [
-          set dwell dwelling_max + 1
+          set cupo llenado-max + 1
         ]
       ]
     ]
   ]
-  foreach sort-on [ xcor ] carriages [ the-carriage -> ask the-carriage [
+  foreach sort-on [xcor] vagones [ los-vagones -> ask los-vagones[
     ifelse not can-move? 1 [
-      die
+    die
     ][
-      if dwelling = 0 [
+      if llenado = 0 [
         fd 1
       ]
     ]
-  ] ]
-  ifelse dwelling > 1 [
-    ask engines [ set color magenta ]
-    ask carriages [ set color magenta ]
+    ]
+  ]
+  ifelse llenado > 1 [
+    ask motores [set color white]
+    ask vagones [set color white]
   ][
-    ask engines [ set color white ]
-    ask carriages [ set color white ]
-  ]
-end
-
-to move-a-human [ dwelling ]
-  if dwelling > 1 and dwelling < dwelling_max and ycor = 4 [
-    let hxcor xcor
-    if any? carriages-on patch hxcor -9 [
-      ask carriages with [ xcor = hxcor and ycor = 4 ] [ set load load + 1 ]
-      die
-    ]
-  ]
-  if ycor < 4 [
-    let newy ( ycor + 1 )
-    if heading = 180 [ set newy ( ycor - 1 ) ]
-    ; go forward
-    if can-next-stopping-engine-be-at-coord (xcor) and not any? turtles-on patch xcor newy [
-      setxy xcor newy
-      stop
-    ]
-    ; prefer to move up and right
-    if can-next-stopping-engine-be-at-coord (xcor + 1) and not any? turtles-on patch (xcor + 1) newy [
-      setxy xcor + 1 newy
-      stop
-    ]
-    ; then to move up and left
-    if can-next-stopping-engine-be-at-coord (xcor - 1) and not any? turtles-on patch (xcor - 1) newy [
-      setxy xcor - 1 newy
-      stop
-    ]
-  ]
-  ; try moving right
-  if not can-next-stopping-engine-be-at-coord (xcor) and (xcor + 1 < 0) and not any? turtles-on patch (xcor + 1) ycor [
-    setxy (xcor + 1) ycor
-  ]
-end
-
-to move-humans
-  if is-time-to-move
-  [
-    let dwelling 0
-    ask engines with [ xcor = -11 ] [
-      set dwelling dwell
-    ]
-
-    ; remember it is [start..stop) by step
-    foreach (range -11 (min-pycor - 1) -1) [ y ->
-      foreach (range -1 -14 -1) [ x ->
-        ask pasajeros with [ xcor = x and ycor = y ] [
-          move-a-human dwelling
-        ]
-      ]
-    ]
-    set last_move_tick ticks
+    ask motores [set color red]
+    ask vagones [set color red]
   ]
 end
 
 ; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ; Creacion
 ; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-to make-new-human
-  if is-time-to-make-new-human [
-    set last_new_human_tick ticks
-    let dir 0 ; ( floor ( random-float 1.9 ) ) * 180
-    ;(CAmbiar posicion de aparicion)
-    let x ( -15 - round ( random-float numero-vagones ) )
-    let y (6)
-    if dir = 180 [ set y max-pycor ]
-    if (random-float 100 < human-frequency) and not any? turtles-on patch x y [
-      create-pasajeros 1 [
-        setxy x y
-        set heading dir
-        set color cyan ; one-of [ yellow red blue orange cyan ]
-        set shape one-of [ "person business" "person construction" "person doctor" "person service" "person lumberjack" "person student" ]
-      ]
-    ]
-  ]
-end
-
-to make-new-carriage
-  if count carriages < numero-vagones [
-    if any? turtles-on patch (min-pxcor + 1) -11 [
-      create-carriages 1 [
-        setxy min-pxcor -11
-        set heading 90
-        set color white
-        set load 0
-      ]
-    ]
-  ]
-end
-
-to make-new-engine
-  if count engines > 0 [ error "Asked to make a engine when one already exists." ]
-
-  if is-time-to-make-new-engine [
-    set last_new_engine_tick ticks
-
-    create-engines 1 [
-      setxy min-pxcor -11
-      set heading 90
-      set color white ; one-of [ yellow red blue orange cyan ]
-      set dwell 0
-    ]
-  ]
-end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -421,8 +287,8 @@ SLIDER
 56
 932
 89
-numero-vagones
-numero-vagones
+n-vagones
+n-vagones
 2
 3
 3.0
@@ -440,23 +306,6 @@ velocidad-simulacion
 velocidad-simulacion
 0.125 0.25 0.5 1 2 4 8
 6
-
-BUTTON
-131
-140
-194
-173
-go
-go
-T
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-0
 
 SLIDER
 684
