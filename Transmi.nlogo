@@ -169,11 +169,11 @@ end
 to go-single
   ;para mantener los vagones como uno
   ifelse count motores > 0 or count vagones > 0 [
-    ;mover-motores
+   mover-motores
   ][
-   ; hacer-nuevo-motor
+   hacer-nuevo-motor
   ]
-  ;hacer-nuevo-vagon
+   hacer-nuevo-vagon
 end
 ; ~~~~~~~~~~~~~~~~~~~~
 ; Control
@@ -222,6 +222,32 @@ end
 ; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ; Creacion
 ; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+to hacer-nuevo-vagon
+  if count vagones < n-vagones[
+    if any? turtles-on patch (min-pxcor + 1) -11[
+      create-vagones 1 [
+        setxy min-pxcor -11
+        set heading 90
+        set color red
+        set carga 0
+      ]
+    ]
+  ]
+end
+to hacer-nuevo-motor
+  if count motores > 0 [ error "pregunte a (crear motor) cuando uno ya exista" ]
+  if momentode-hacer-nuevo-motor [
+  set tick-ultimo-nuevo-motor ticks
+
+   create-motores 1 [
+    setxy min-pxcor -11
+    set heading 90
+    set color red
+    set cupo 0
+  ]
+ ]
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -289,9 +315,9 @@ SLIDER
 89
 n-vagones
 n-vagones
-2
+1
 3
-3.0
+2.0
 1
 1
 carriages
@@ -305,7 +331,7 @@ CHOOSER
 velocidad-simulacion
 velocidad-simulacion
 0.125 0.25 0.5 1 2 4 8
-6
+2
 
 SLIDER
 684
@@ -336,6 +362,23 @@ human-frequency
 1
 NIL
 HORIZONTAL
+
+BUTTON
+133
+139
+196
+172
+go
+go
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
