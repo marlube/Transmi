@@ -4,6 +4,7 @@
 globals [
   tick-ultimo-nuevo-motor ;last_new_engine_tick
   llenado-max             ;dwelling_max
+
 ]
 breed [pasajeros pasajero]
 breed [motores motor]
@@ -123,7 +124,7 @@ to setup
   clear-all
   reset-ticks
   set tick-ultimo-nuevo-motor 0
-  set llenado-max 0
+  set llenado-max 20
 
   set-default-shape motores "train passenger engine"
   set-default-shape vagones "train passenger car"
@@ -294,21 +295,6 @@ NIL
 1
 
 SLIDER
-681
-14
-935
-47
-intervalo-transmi
-intervalo-transmi
-0
-600
-480.0
-60
-1
-segundos
-HORIZONTAL
-
-SLIDER
 682
 56
 932
@@ -331,7 +317,7 @@ CHOOSER
 velocidad-simulacion
 velocidad-simulacion
 0.125 0.25 0.5 1 2 4 8
-2
+5
 
 SLIDER
 684
@@ -379,6 +365,21 @@ NIL
 NIL
 NIL
 1
+
+SLIDER
+685
+186
+928
+219
+intervalo-transmi
+intervalo-transmi
+240
+420
+240.0
+60
+1
+seconds
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
