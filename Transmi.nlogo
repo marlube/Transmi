@@ -2,17 +2,16 @@
 ; Definiciones
 ; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 globals [
-  tick-ultimo-nuevo-motor ;last_new_engine_tick
-  llenado-max             ;dwelling_max
-
+  tick_ultimo_nuevo_motor ;last_new_engine_tick
+  tick_ultimo_nuevo_pasaj; last_new_human_tick
+  tick_ultimo_mov;last_move_tick
+  llenado_max             ;dwelling_max
 ]
 breed [pasajeros pasajero]
 breed [motores motor]
 breed [vagones vagon]
 breed [motores2 motor2]
 breed [vagones2 vagon2]
-
-
 
 pasajeros-own [
   edad saldo destino ingresos estres
@@ -34,13 +33,17 @@ vagones2-own [
 ; Reportes
 ; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+;***********************************
+;Report Transmilenio motor y vagones
+;***********************************
+
 to-report ticks-del-siguiente-transmi
   ;el tick del ultimo motor mas el intervalo de aparicion que da el usuario
   ;es en el tick en el cual tiene que aparecer el siguiente transmi
-  report tick-ultimo-nuevo-motor + intervalo-transmi
+  report tick_ultimo_nuevo_motor + intervalo-transmi
 end
 
-to-report momentode-hacer-nuevo-motor
+to-report es-momento-hacer-nuevo-motor
   ;cuando el tick sea el de arriba ahí reporta el numero de tick para crear otro
   report ticks >= ticks-del-siguiente-transmi
 end
@@ -58,7 +61,7 @@ to-report puede-motor-estar-coord [ x ]
   report x > (0 - n-vagones - 1) and x < 0
 end
 
-to-report Puede-parar-motor-en-coord [ x ]
+to-report puede-parar-motor-en-coord [ x ]
   let active-motor false
   ;se inicia la variable en falso
   if count motores > 1 [
@@ -89,12 +92,24 @@ end
 
 to-report cuenta-regresiva-aparicion-motor
   if count motores < 1 [
-    let t (ticks-del-siguiente-transmi - ticks)
-    if t < 0 [report 0]
+    let t ( ticks-del-siguiente-transmi - ticks )
+    if t < 0 [ report 0 ]
     report t
   ]
   report "-"
   ;cuenta regresiva para la aparicion de otro transmi
+end
+;****************
+;Report Pasajeros
+;****************
+
+to-report es-moment-crear-pasajero
+  let t ( intervalo-pasajeros )
+  report ticks >= tick_ultimo_nuevo_pasaj + t
+end
+
+to-report es-momento-mover
+  report ticks >= tick_ultimo_mov + 2
 end
 
 to-report  coordenadas-elementos-mundo [ x y ]
@@ -123,8 +138,10 @@ end
 to setup
   clear-all
   reset-ticks
-  set tick-ultimo-nuevo-motor 0
-  set llenado-max 20
+  set tick_ultimo_nuevo_motor 0
+  set tick_ultimo_nuevo_pasaj 0
+  set tick_ultimo_mov 0
+  set llenado_max 20
 
   set-default-shape motores "train passenger engine"
   set-default-shape vagones "train passenger car"
@@ -157,6 +174,7 @@ end
 ; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ; Running
 ; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 to go
   every 0.1 / velocidad-simulacion [
   ; let us set the tick rate at 10 fps
@@ -175,14 +193,25 @@ to go-single
    hacer-nuevo-motor
   ]
    hacer-nuevo-vagon
+
+   mover-pasajeros
+   hacer-nuevo-pasajero
 end
 ; ~~~~~~~~~~~~~~~~~~~~
 ; Control
 ; ~~~~~~~~~~~~~~~~~~~~
 
+to retraso-siguiente-motor [ duration ]
+  set tick_ultimo_nuevo_motor ( tick_ultimo_nuevo_motor + duration)
+end
+
 ; ~~~~~~~~~~~~~~~~~~~~
 ; Movement
 ; ~~~~~~~~~~~~~~~~~~~~
+
+;***********************************
+; Transmilenio motor y vagones
+;***********************************
 
 to mover-motores
   let llenado 0
@@ -196,21 +225,20 @@ to mover-motores
       ][
         fd 1
         if xcor = 0 [
-          set cupo llenado-max + 1
+          set cupo llenado_max + 1
         ]
       ]
     ]
   ]
   foreach sort-on [xcor] vagones [ los-vagones -> ask los-vagones[
     ifelse not can-move? 1 [
-    die
+      die
     ][
       if llenado = 0 [
         fd 1
       ]
     ]
-    ]
-  ]
+  ] ]
   ifelse llenado > 1 [
     ask motores [set color white]
     ask vagones [set color white]
@@ -220,9 +248,72 @@ to mover-motores
   ]
 end
 
+;**********
+; Pasajeros
+;**********
+
+to mover-un-pasajero [llenado]
+  if llenado > 1 and llenado < llenado_max and ycor = -11 [
+  let hxcor xcor
+    if any? vagones-on patch hxcor -1[
+      ask vagones with [ xcor = hxcor and ycor = -11 ] [set carga carga + 1]
+      die
+      ;pregunta si en la posicion (-1,-11) posicion hay vagones
+      ;si los hay, se dirige a ella, la carga del vagon se vuelve carga + 1
+      ;y el muñequito muere
+    ]
+  ]
+  if ycor < -11 [
+    let newy ( ycor + 1 )
+    if heading = 90 [set newy (ycor - 1)]
+    ;si el pasajero esta mirando al sur se asigna un nuevo valor a la coordenada y
+    ;avanzar
+    if puede-parar-motor-en-coord (xcor) and not any? turtles-on patch xcor newy [
+      setxy xcor newy
+      stop
+    ]
+    ;prefiero mover hacia arriba y hacia la derecha
+    if puede-parar-motor-en-coord (xcor + 1) and not any? turtles-on patch (xcor + 1) newy [
+      setxy xcor + 1 newy
+      stop
+    ]
+    ;luego moverse hacia arriba y hacia la izquierda
+    if puede-parar-motor-en-coord (xcor - 1) and not any? turtles-on patch (xcor - 1) newy [
+      setxy xcor - 1 newy
+      stop
+    ]
+  ]
+  ; intenta moverte a la derecha
+  if not puede-parar-motor-en-coord (xcor) and (xcor + 1 < 0) and not any? turtles-on patch (xcor + 1) ycor [
+    setxy (xcor + 1) ycor
+  ]
+end
+
+to mover-pasajeros
+  if es-momento-mover
+  [
+    let llenado 0
+    ask motores with [ xcor = 0 ][
+      set llenado cupo
+    ]
+    ;recuerda que es (empezar, parar) paso a paso
+    foreach (range -12 10) [ y ->
+      foreach (range -17 -2) [ x ->
+        ask pasajeros with [ xcor = x and ycor = y ] [
+          mover-un-pasajero llenado
+        ]
+      ]
+    ]
+    set tick_ultimo_mov ticks
+  ]
+end
 ; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ; Creacion
 ; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+;*****************************
+; Transmilenio motor y vagones
+;*****************************
 
 to hacer-nuevo-vagon
   if count vagones < n-vagones[
@@ -237,10 +328,10 @@ to hacer-nuevo-vagon
   ]
 end
 to hacer-nuevo-motor
-  if count motores > 0 [ error "pregunte a (crear motor) cuando uno ya exista" ]
-  if momentode-hacer-nuevo-motor [
-  set tick-ultimo-nuevo-motor ticks
-
+  if count motores > 0 [ error "pregunte a (crear motor) cuando uno ya exista"
+  ]
+  if es-momento-hacer-nuevo-motor [
+    set tick_ultimo_nuevo_motor ticks
    create-motores 1 [
     setxy min-pxcor -11
     set heading 90
@@ -248,6 +339,28 @@ to hacer-nuevo-motor
     set cupo 0
   ]
  ]
+end
+
+;**********
+; Pasajeros
+;**********
+
+to hacer-nuevo-pasajero
+  if es-moment-crear-pasajero [
+  set tick_ultimo_nuevo_pasaj ticks
+  let dir 0 ;
+  let x min-pxcor
+  let y (random 19 - 9) ;pueden aparecer random entre -9 y 10
+    if dir = 90 [ set y max-pycor ]
+    if (random-float 100 < frec-pasajeros ) and not any? turtles-on patch x y [
+      create-pasajeros 1 [
+        setxy x y
+        set heading dir
+        set color cyan
+        set shape one-of [ "person business" "person construction" "person doctor" "person service" "person lumberjack" "person student" ]
+      ]
+    ]
+  ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -317,7 +430,7 @@ CHOOSER
 velocidad-simulacion
 velocidad-simulacion
 0.125 0.25 0.5 1 2 4 8
-5
+1
 
 SLIDER
 684
@@ -328,7 +441,7 @@ intervalo-pasajeros
 intervalo-pasajeros
 1
 30
-15.0
+3.0
 1
 1
 seconds
@@ -337,16 +450,16 @@ HORIZONTAL
 SLIDER
 684
 142
-866
+887
 175
-human-frequency
-human-frequency
+frec-pasajeros
+frec-pasajeros
 0
 100
 50.0
 5
 1
-NIL
+%
 HORIZONTAL
 
 BUTTON
@@ -380,6 +493,17 @@ intervalo-transmi
 1
 seconds
 HORIZONTAL
+
+MONITOR
+24
+240
+121
+285
+Nuevo motor
+cuenta-regresiva-aparicion-motor
+0
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
