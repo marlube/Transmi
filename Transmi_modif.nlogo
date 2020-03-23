@@ -36,6 +36,9 @@ carriages-own [
 vagones-own [
   load2
 ]
+humans-own [
+  hijos ingresos ruta edad
+]
 
 ; ~~~~~~~~~~~~~~~~~~~~
 ; Reporting
@@ -189,6 +192,10 @@ to iniciar-patches
   ]
 end
 
+; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+; Hora del dia
+; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 
 ; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ; Running
@@ -309,6 +316,11 @@ to move-motores
   ]
 end
 
+To mov-taquilla
+
+
+end
+
 to move-a-human [ dwelling ]
   if dwelling > 1 and dwelling < dwelling_max and ycor = -2 [
     let hxcor xcor
@@ -361,6 +373,39 @@ to move-humans
     set last_move_tick ticks
   ]
 end
+; ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+; Inicializacion de Variables
+; ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+to asignar-ingresos-ruta
+  let gastos 0
+  set edad random 80 + 25
+  if edad > 25 and edad < 30[
+    set hijos random 3
+  ]
+  if edad > 29 and edad < 81[
+    set hijos random 5
+  ]
+  if edad > 25 [
+    if hijos = 0[
+      set ingresos random 3000 ; Equivale a 3'000.000
+      set ingresos ingresos + 877
+    ]
+  ]
+  if edad > 25 [
+    if hijos > 1 and hijos < 2 [
+      set ingresos random 4000 ; Equivale a 4'000.000
+      set ingresos ingresos + 877
+    ]
+  ]
+  if edad > 25 [
+    if hijos > 2 [
+      set ingresos random 5000 ; Equivale a 5'000.000
+      set ingresos ingresos + 877
+    ]
+  ]
+  set ruta (one-of ["B14" "B23" "B18" "D20" "C15" "F14" "L18" "H15" "K23" "H20"])
+end
 
 ; ~~~~~~~~~~~~~~~~~~~~
 ; Creation
@@ -381,9 +426,11 @@ to make-new-human
         set heading dir
         set color cyan ; one-of [ yellow red blue orange cyan ]
         set shape one-of [ "person business" "person construction" "person doctor" "person service" "person lumberjack" "person student" ]
+        asignar-ingresos-ruta
       ]
     ]
   ]
+
 end
 
 to make-new-carriage
