@@ -3,9 +3,9 @@
 ; This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 License.
 ; To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/3.0/ or send a letter to Creative Commons, 559 Nathan Abbott Way, Stanford, California 94305, USA.
 
-; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-; Definitions
-; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+;                                  Definitions
+; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ; Maximum Train/Platform Length 12
 globals [
   last_new_human_tick
@@ -18,6 +18,7 @@ globals [
   time_registradora1
   time_registradora2
   time_registradora3
+  pierdes_plata
 ]
 
 breed [ engines engine ]
@@ -28,10 +29,10 @@ breed [ humans human ]
 breed [ flora florum ]
 
 engines-own [
-  dwell
+  dwell ruta-engine
 ]
 motores-own [
-  dwell2
+  dwell2 ruta-motor
 ]
 carriages-own [
   load
@@ -40,12 +41,12 @@ vagones-own [
   load2
 ]
 humans-own [
-  hijos ingresos ruta edad
+  hijos ingresos ruta edad estres va-tarde
 ]
 
-; ~~~~~~~~~~~~~~~~~~~~
-; Reporting
-; ~~~~~~~~~~~~~~~~~~~~
+; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+;                                Reporting
+; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 to-report ticks-of-next-new-engine
   report last_new_engine_tick + engine-interval
 end
@@ -112,9 +113,11 @@ to-report can-next-stopping-engine-be-at-coord [ x ]
   report x > (0 - (count carriages) - 1) and x < 0
 end
 
-;*****************
-; Registradora
-;*****************
+
+;*******************************************************************************
+;          reportes para proceso de ingresar por la REGISTRADORA
+;*******************************************************************************
+
 
 to-report puede-estar-human-coord [ x ]
   report x > (min-pxcor - 1) and x < -4
@@ -122,7 +125,7 @@ to-report puede-estar-human-coord [ x ]
 end
 
 to-report ingresar [ x ]
-  report x > -6 and x < -3;(0 + carriage-length + 1)
+  report x > -6 and x < (0 + carriage-length + 1)
   ;si ya paso registradora, puede estar desde -4 hasta el numero de vagones
 end
 
@@ -139,19 +142,35 @@ to-report puede-parar-en-registradora [ x ]
   if not active-human [ report puede-estar-human-coord x ]
   report x < -5 and x > (min-pxcor - 1)
 end
-;PRUEBASSSSSS
 
 to-report is-time-to-move-reg1 ;
-    report ticks >= time_registradora1 + 50
+    report ticks >= time_registradora1 + tiempo-en-registradora
 end
 
 to-report is-time-to-move-reg2 ; hay alguien en registradora 1
- report ticks >= time_registradora2 + 50
+ report ticks >= time_registradora2 + tiempo-en-registradora
 end
 
 to-report is-time-to-move-reg3 ; hay alguien en registradora 1
-  report ticks >= time_registradora3 + 50
+  report ticks >= time_registradora3 + tiempo-en-registradora
 end
+
+;*******************************************************************************
+;                       reportes para LAS RUTAS e INCENTIVO DE VIDA
+;*******************************************************************************
+
+to-report puede_esperar_puerta1 [ x ]
+  report  x > -5 and x < (0 + carriage-length + 1)
+end
+
+to-report descontar
+  report  ticks >= pierdes_plata + 120
+end
+
+;*******************************************************************************
+;          Programacion visual del mundo
+;*******************************************************************************
+
 
 to-report  coordenadas-elementos-mundo [ x y ]
   if ( y > -14 and y < -11 ) and ( x > -5 and x < 17 )  [ report "platform" ]
@@ -160,7 +179,6 @@ to-report  coordenadas-elementos-mundo [ x y ]
   if y = -15 [ report "dirt" ]
   if y = 3 [ report "dirt" ]
   if y = 1 [ report "dirt" ]
-
   if y = -14 [ report "railway" ]
   if y = 2 [ report "railway2" ]
   if (y = -2 and x = -5)  [report "registradora1"]
@@ -194,9 +212,9 @@ to-report engine-countdown
   report "-"
 end
 
-; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-; Setup
-; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+;                                     Setup
+; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 to startup
   setup
 end
@@ -252,9 +270,9 @@ end
 
 
 
-; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-; Running
-; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+;                                    Running
+; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 to go
   every 0.1 / simulation-speed [
     ; let us set the tick rate at 10 fps
@@ -264,6 +282,7 @@ to go
     go-segtransmi
     tick
   ]
+
 end
 
 to go-single
@@ -276,11 +295,15 @@ to go-single
   make-new-carriage ; use the fact that the last carriage may have moved into the second square to test
   ;; not available in the web -> display
   make-new-human
-
+ ; incentivo-vida
   move-humans-Registradora
   move-humans-ingesar-regist1
   move-humans-ingesar-regist2
   move-humans-ingesar-regist3
+
+  move-humans-a-puerta
+
+  ;move-humans-ingesar
 end
 
 to go-segtransmi
@@ -292,6 +315,7 @@ to go-segtransmi
   ]
   ; use the fact that the last carriage may have moved into the second square to test
   ;; not available in the web -> display
+
   make-new-vagones
 end
 
@@ -302,22 +326,49 @@ to delay-next-engine [ duration ]
   set last_new_engine_tick ( last_new_engine_tick + duration )
 end
 
-; ~~~~~~~~~~~~~~~~~~~~
-; Movement
-; ~~~~~~~~~~~~~~~~~~~~
+; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+;                                Movement
+; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+;*******************************************************************************
+;          Movimientos para VAGONES Y MOTORES
+;*******************************************************************************
+
+
 to move-engines
   let dwelling 0
-  ask engines [
-    ifelse not can-move? 1 [
-      die
-    ][
-      set dwelling dwell
-      ifelse dwell > 0 [
-        set dwell dwell - 1
+  ask engines with [ruta-engine = "H15" or ruta-engine = "K23" or ruta-engine = "H20"] [
+    ask engines [
+      ifelse not can-move? 1 [
+        die
       ][
-        fd 1
-        if xcor = 0 [
-          set dwell dwelling_max + 1
+        set dwelling dwell
+        ifelse dwell > 0 [
+          set dwell dwell - 1
+        ][
+          fd 1
+          if xcor = 2 [
+            set dwell dwelling_max + 1
+          ]
+        ]
+      ]
+    ]
+  ]
+  ask engines with [ruta-engine = "F14" or ruta-engine = "L18"] [
+
+    ask engines [
+      ifelse not can-move? 1 [
+        die
+      ][
+        set dwelling dwell
+        ifelse dwell > 0 [
+          set dwell dwell - 1
+        ][
+          fd 1
+          if xcor = 9 [
+            set dwell dwelling_max + 1
+          ]
         ]
       ]
     ]
@@ -338,21 +389,42 @@ to move-engines
     ask engines [ set color red ]
     ask carriages [ set color red ]
   ]
+
+
 end
 
 to move-motores
   let dwelling2 0
-  ask motores [
-    ifelse not can-move? 1 [
-      die
-    ][
-      set dwelling2 dwell2
-      ifelse dwell2 > 0 [
-        set dwell2 dwell2 - 1
+  ask motores with [ruta-motor = "B14" or ruta-motor = "B23" or ruta-motor = "B18" ] [
+    ask motores [
+      ifelse not can-move? 1 [
+        die
       ][
-        fd 1
-        if xcor = 0 [
-          set dwell2 dwelling_max2 + 1
+        set dwelling2 dwell2
+        ifelse dwell2 > 0 [
+          set dwell2 dwell2 - 1
+        ][
+          fd 1
+          if xcor = 0 [
+            set dwell2 dwelling_max2 + 1
+          ]
+        ]
+      ]
+    ]
+  ]
+  ask motores with [ruta-motor = "D20" or ruta-motor = "C15"] [
+    ask motores [
+      ifelse not can-move? 1 [
+        die
+      ][
+        set dwelling2 dwell2
+        ifelse dwell2 > 0 [
+          set dwell2 dwell2 - 1
+        ][
+          fd 1
+          if xcor = 8 [
+            set dwell2 dwelling_max2 + 1
+          ]
         ]
       ]
     ]
@@ -374,6 +446,13 @@ to move-motores
     ask vagones [ set color red ]
   ]
 end
+
+
+;*******************************************************************************
+;                     Movimientos antes de REGISTRADORA
+;*******************************************************************************
+
+
 to move-a-human-registradora
   if xcor < -4 [
     let newx (xcor + 1)
@@ -407,6 +486,12 @@ to move-humans-Registradora
     set last_move_tick ticks
   ]
 end
+
+
+;*******************************************************************************
+;          Movimientos para parar en registradora e INGRESAR AL SISTEMA
+;*******************************************************************************
+
 
 to move-a-human-ingreso
   if xcor > -6 [
@@ -470,9 +555,122 @@ to move-humans-ingesar-regist3
     set time_registradora3 ticks
   ]
 end
-; ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-; Inicializacion de Variables
-; ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+;*******************************************************************************
+;                       Movimientos para IR A LAS PUERTAS
+;*******************************************************************************
+
+
+to move-humans-a-puerta
+
+  if all? turtles [ xcor > -3 and xcor < (0 + carriage-length + 1) and ycor > -14 and ycor < 2]
+  [ stop ]
+  ask humans
+  [ wiggle 90
+    correct-path
+    if xcor > -3 [
+      ask humans with [ruta = "B14" or ruta = "B23" or ruta = "B18"] [
+        facexy 1 1
+      ]
+      ask humans with [ruta = "D20" or ruta = "C15"][
+        facexy 9 1
+      ]
+      ask humans with [ruta = "F14"  or ruta = "L18" ][
+        facexy 1 -13
+      ]
+      ask humans with [ruta = "H15" or ruta = "K23" or ruta = "H20"  ][
+        facexy 9 -13
+      ]
+    ]
+  ]
+  tick
+end
+
+;*******************************************************************************
+;                       Movimientos para MOVERSE A LAS RUTAS
+;*******************************************************************************
+to wiggle [angle]
+  if xcor > -5[
+    rt 15 + random-float 30
+    lt 15 + random-float 30
+    fd 0.5
+  ]
+end
+
+to correct-path
+  ifelse heading > 180
+    [ rt 90 ]
+    [ if patch-at 0 -5 = nobody
+        [ rt 200 ]
+     if patch-at 0 5 = nobody
+        [ lt 100 ] ]
+end
+
+; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+;                    Inicializacion de Variables
+; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+;*******************************************************************************
+;                   Asignaion de INCENTIVO DE VIDA ESTRES Y VA-TARDE
+;*******************************************************************************
+
+to Asignar-va-tarde
+    set va-tarde random 5 ;puede ser 0 1 2 3 4  siendo : nada , un poco, sobre el tiempo, algotarde, muy tarde
+end
+
+to incentivo-vida
+  let gastos 0
+  ask humans [
+    if va-tarde = 0[ ;0 = no .... nada
+      set ingresos  ingresos
+      set estres  0
+    ]
+    if va-tarde = 1 [ ;1 = si...... un poco
+      set gastos ingresos * (random 0.4 + 0.2)
+      set ingresos ingresos - gastos
+      set estres 2
+    ]
+    if va-tarde = 2 [ ;1 = si...... sobre el tiempo
+      set gastos ingresos * (random 0.4 + 0.2)
+      set ingresos ingresos - gastos
+      set estres 3
+      if descontar [
+        let descuento 0
+        set descuento ingresos * 0.1 ; de le descuenta el 1%
+        set ingresos ingresos - descuento
+        if ingresos = 0 [ die ]
+      ]
+    ]
+    if va-tarde = 3 [ ;1 = si...... algotarde
+      set gastos ingresos * (random 0.4 + 0.2)
+      set ingresos ingresos - gastos
+      set estres 4
+      if descontar [
+        let descuento 0
+        set descuento ingresos * 0.2 ; el tiempo son 2 minutos, a los 40 minutos de estar en el sistema muere
+        set ingresos ingresos - descuento
+        if ingresos = 0 [ die ]
+      ]
+    ]
+    if va-tarde = 4 [ ;1 = si...... muy tarde
+      set gastos ingresos * (random 0.4 + 0.2)
+      set ingresos ingresos - gastos
+      set estres 5
+      if descontar [
+        let descuento 0
+        set descuento ingresos * 0.3 ; el tiempo son 2 minutos, a los 40 minutos de estar en el sistema muere
+        set ingresos ingresos - descuento
+        if ingresos = 0 [ die ]
+      ]
+    ]
+  ]
+end
+
+;*******************************************************************************
+;                   Asignaion de INGRESOS RUTA EDAD
+;*******************************************************************************
 
 to asignar-ingresos-ruta
   let gastos 0
@@ -486,30 +684,38 @@ to asignar-ingresos-ruta
   if edad > 25 [
     if hijos = 0[
       set ingresos random 3000 ; Equivale a 3'000.000
-      set ingresos ingresos + 877
+      set ingresos (ingresos + 877)
     ]
   ]
   if edad > 25 [
     if hijos > 1 and hijos < 2 [
       set ingresos random 4000 ; Equivale a 4'000.000
-      set ingresos ingresos + 877
+      set ingresos (ingresos + 877)
     ]
   ]
   if edad > 25 [
     if hijos > 2 [
       set ingresos random 5000 ; Equivale a 5'000.000
-      set ingresos ingresos + 877
+      set ingresos (ingresos + 877)
     ]
   ]
   set ruta (one-of ["B14" "B23" "B18" "D20" "C15" "F14" "L18" "H15" "K23" "H20"])
 end
 
-; ~~~~~~~~~~~~~~~~~~~~
-; Creation
-; ~~~~~~~~~~~~~~~~~~~~
-;*****************
-; Creacion humanos
-;*****************
+to asignar-ruta-al-norte
+  set ruta-motor (one-of ["B14" "B23" "B18" "D20" "C15"])
+end
+
+to asignar-ruta-al-sur
+  set ruta-engine (one-of ["F14" "L18" "H15" "K23" "H20"])
+end
+
+; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+;                                   Creation
+; ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+;*******************************************************************************
+;                               Creacion humanos
+;*******************************************************************************
 
 to make-new-human
   if is-time-to-make-new-human [
@@ -524,15 +730,17 @@ to make-new-human
         set color cyan ; one-of [ yellow red blue orange cyan ]
         set shape one-of [ "person business" "person construction" "person doctor" "person service" "person lumberjack" "person student" ]
         asignar-ingresos-ruta
+        Asignar-va-tarde
       ]
     ]
   ]
 
 end
 
-;********************
-; Creacion de Transmi
-;********************
+;*******************************************************************************
+;                            Creacion de Transmi
+;*******************************************************************************
+
 
 to make-new-carriage
   if count carriages < carriage-length [
@@ -541,6 +749,7 @@ to make-new-carriage
         setxy min-pxcor -14
         set heading 90
         set color white
+        set size 2.5
         set load 0
       ]
     ]
@@ -558,13 +767,15 @@ to make-new-engine
       set heading 90
       set color white ; one-of [ yellow red blue orange cyan ]
       set dwell 0
+      set size 2.5
+      asignar-ruta-al-sur
     ]
   ]
 end
 
-;*************************
-; Carril sentido contrario
-;*************************
+;*******************************************************************************
+;                         Creacion transmi Carril sentido contrario
+;*******************************************************************************
 
 to make-new-vagones
   if count vagones < carriage-length [
@@ -573,6 +784,7 @@ to make-new-vagones
         setxy max-pxcor 2
         set heading 270
         set color white
+        set size 2.5
         set load2 1
       ]
     ]
@@ -590,12 +802,11 @@ to make-new-motores
       set heading 270
       set color white ; one-of [ yellow red blue orange cyan ]
       set dwell2 0
+      set size 2.5
+      asignar-ruta-al-norte
     ]
   ]
 end
-;*************************
-; Carril sentido contrario
-;*************************
 @#$#@#$#@
 GRAPHICS-WINDOW
 192
@@ -676,10 +887,10 @@ NIL
 0
 
 PLOT
-637
-9
-1111
-291
+874
+10
+1106
+166
 Humans Outside
 time (15 sec)
 persons
@@ -732,7 +943,7 @@ MONITOR
 630
 389
 humans inside
-get-load-on-carriages
+get-load-on-carriages2
 0
 1
 11
@@ -809,31 +1020,14 @@ dwell-countdown
 11
 
 CHOOSER
-7
-323
-186
-368
+8
+249
+187
+294
 simulation-speed
 simulation-speed
 0.125 0.25 0.5 1 2 4 8
 3
-
-BUTTON
-6
-257
-95
-291
-delay train 60
-delay-next-engine 60\n
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-0
 
 MONITOR
 346
@@ -847,10 +1041,10 @@ engine-countdown
 11
 
 PLOT
-637
-297
-1111
-482
+874
+179
+1109
+330
 Trains
 time (15 sec)
 trains
@@ -865,22 +1059,20 @@ PENS
 "engines" 1.0 0 -5298144 true "" "plot count engines"
 "carriages" 1.0 0 -13345367 true "" "plot count carriages"
 
-BUTTON
-94
-257
-188
-291
-delay train 300
-delay-next-engine 300
-NIL
+SLIDER
+651
+10
+843
+43
+tiempo-en-registradora
+tiempo-en-registradora
+0
+60
+41.0
 1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
 1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
