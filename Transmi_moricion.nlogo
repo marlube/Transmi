@@ -376,7 +376,6 @@ to morir-norte [dwelling2]
         ]
       ]
     ]
-
   ]
 end
 
@@ -387,6 +386,7 @@ to mueren-humans
   ]
 
   ask humans with [xcor = 1 and ycor = 1][
+    setxy -3000 -5000
      die
   ]
 end
@@ -433,6 +433,7 @@ to move-engines
       ]
     ]
   ]
+
   foreach sort-on [ xcor ] carriages [ the-carriage -> ask the-carriage [
     ifelse not can-move? 1 [
       die
@@ -632,19 +633,15 @@ to move-humans-a-puerta
     if xcor > -3 [
       ask humans with [ruta = "B14" or ruta = "B23" or ruta = "B18"] [
         facexy 1 1
-        setxy 1 1
       ]
       ask humans with [ruta = "D20" or ruta = "C15"][
         facexy 9 1
-        setxy 9 1
       ]
       ask humans with [ruta = "F14"  or ruta = "L18" ][
         facexy 1 -13
-        setxy 1 -13
       ]
       ask humans with [ruta = "H15" or ruta = "K23" or ruta = "H20"  ][
         facexy 9 -13
-        setxy 9 -13
       ]
     ]
   ]
