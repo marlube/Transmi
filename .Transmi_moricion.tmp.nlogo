@@ -631,19 +631,16 @@ to move-humans-a-puerta
     correct-path
     if xcor > -3 [
       ask humans with [ruta = "B14" or ruta = "B23" or ruta = "B18"] [
-        facexy 1 1
+
         setxy 1 1
       ]
       ask humans with [ruta = "D20" or ruta = "C15"][
-        facexy 9 1
         setxy 9 1
       ]
       ask humans with [ruta = "F14"  or ruta = "L18" ][
-        facexy 1 -13
         setxy 1 -13
       ]
       ask humans with [ruta = "H15" or ruta = "K23" or ruta = "H20"  ][
-        facexy 9 -13
         setxy 9 -13
       ]
     ]
