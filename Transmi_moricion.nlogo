@@ -38,7 +38,7 @@ carriages-own [
   load
 ]
 vagones-own [
-  load2
+  carga
 ]
 humans-own [
   hijos ingresos ruta edad estres va-tarde
@@ -86,7 +86,7 @@ to-report get-load-on-carriages2
     report 0
   ]
   let c 0
-  ask vagones [ set c ( c + load2 ) ]
+  ask vagones [ set c ( c + carga ) ]
   report c
 end
 
@@ -166,6 +166,12 @@ end
 to-report descontar
   report  ticks >= pierdes_plata + 120
 end
+
+;*******************************************************************************
+;                       reportes para ESPERAR
+;*******************************************************************************
+
+
 
 ;*******************************************************************************
 ;          Programacion visual del mundo
@@ -357,38 +363,33 @@ to morir-norte [dwelling2]
       ask humans with [ruta = "B14"] [
         let hxcor xcor
         if any? vagones-on patch hxcor 2 [
-          ask vagones with [ xcor = hxcor  and ycor = 2 ] [ set load2 load2 + 1 ]
+          ask vagones with [ xcor = hxcor  and ycor = 2 ] [ set carga carga + 1 ]
           die
         ]
       ]
       ask humans with [ruta = "B23"] [
         let hxcor xcor
         if any? vagones-on patch hxcor 2 [
-          ask vagones with [ xcor = hxcor and ycor = 2 ] [ set load2 load2 + 1 ]
+          ask vagones with [ xcor = hxcor and ycor = 2 ] [ set carga carga + 1 ]
           die
         ]
       ]
       ask humans with [ruta = "B18"] [
         let hxcor xcor
         if any? vagones-on patch hxcor 2 [
-          ask vagones with [ xcor = hxcor and ycor = 2 ] [ set load2 load2 + 1 ]
+          ask vagones with [ xcor = hxcor and ycor = 2 ] [ set carga carga + 1 ]
           die
         ]
       ]
     ]
+
   ]
 end
 
 to mueren-humans
-  let dwelling2 0
-  ask motores with [ xcor = 0 ] [
-    set dwelling2 dwell2
-  ]
 
-  ask humans with [xcor = 1 and ycor = 1][
-    setxy -3000 -5000
-     die
-  ]
+
+
 end
 
 ;*******************************************************************************
@@ -433,7 +434,6 @@ to move-engines
       ]
     ]
   ]
-
   foreach sort-on [ xcor ] carriages [ the-carriage -> ask the-carriage [
     ifelse not can-move? 1 [
       die
@@ -632,20 +632,60 @@ to move-humans-a-puerta
     correct-path
     if xcor > -3 [
       ask humans with [ruta = "B14" or ruta = "B23" or ruta = "B18"] [
-        facexy 1 1
+        if xcor > -5 [
+          facexy 1 1
+          ask motores with [ruta-motor = "B14" or ruta-motor = "B23" or ruta-motor = "B18"] [
+            ask humans with [ruta = "B14"] [
+              let hxcor xcor
+              if any? vagones-on patch hxcor 2 [
+                ask vagones with [ xcor = hxcor  and ycor = 2 ] [ set carga carga + 1 ]
+                die
+              ]
+            ]
+            ask humans with [ruta = "B23"] [
+              let hxcor xcor
+              if any? vagones-on patch hxcor 2 [
+                ask vagones with [ xcor = hxcor and ycor = 2 ] [ set carga carga + 1 ]
+                die
+              ]
+            ]
+            ask humans with [ruta = "B18"] [
+              let hxcor xcor
+              if any? vagones-on patch hxcor 2 [
+                ask vagones with [ xcor = hxcor and ycor = 2 ] [ set carga carga + 1 ]
+                die
+              ]
+            ]
+          ]
+        ]
       ]
       ask humans with [ruta = "D20" or ruta = "C15"][
-        facexy 9 1
+        if xcor > -5[
+
+          facexy 9 1
+          stop
+        ]
       ]
       ask humans with [ruta = "F14"  or ruta = "L18" ][
-        facexy 1 -13
+        if xcor > -5[
+
+          facexy 1 -13
+          stop
+        ]
       ]
       ask humans with [ruta = "H15" or ruta = "K23" or ruta = "H20"  ][
-        facexy 9 -13
+        if xcor > -5[
+
+          facexy 9 -13
+          stop
+
+        ]
       ]
     ]
+    stop
   ]
   tick
+  stop
 end
 
 ;*******************************************************************************
@@ -845,7 +885,7 @@ to make-new-vagones
         set heading 270
         set color white
         set size 2.5
-        set load2 0
+        set carga 0
       ]
     ]
   ]
